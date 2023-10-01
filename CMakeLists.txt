@@ -26,12 +26,73 @@ source_group("OptickCore" FILES ${OPTICK_SRC})
 option(OPTICK_ENABLED "Enable profiling with Optick" ON)
 option(OPTICK_INSTALL_TARGETS "Should optick be installed? Set to OFF if you use add_subdirectory to include Optick." ON)
 
+function(install_optick)
+	include(CMakePackageConfigHelpers)
+	include(GNUInstallDirs)
+
+	set(${PROJECT_NAME}_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}" CACHE STRING "Path to smartcrop cmake files")
+
+	# Use version checking boilerplate
+	write_basic_package_version_file(
+		${PROJECT_NAME}ConfigVersion.cmake
+		COMPATIBILITY SameMajorVersion
+	)
+
+	configure_package_config_file(
+		${PROJECT_SOURCE_DIR}/tools/${PROJECT_NAME}Config.cmake.in
+		${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+		INSTALL_DESTINATION ${${PROJECT_NAME}_INSTALL_CMAKEDIR} 
+		# Imported targets do not require the following macros
+		NO_SET_AND_CHECK_MACRO
+		NO_CHECK_REQUIRED_COMPONENTS_MACRO 
+	)
+
+	install(TARGETS OptickCore
+		EXPORT ${PROJECT_NAME}_Targets
+		RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
+		LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/optick
+		PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/optick
+
+	)
+
+	install(
+		EXPORT ${PROJECT_NAME}_Targets 
+		NAMESPACE ${PROJECT_NAME}::
+		FILE ${PROJECT_NAME}Targets.cmake
+		DESTINATION ${${PROJECT_NAME}_INSTALL_CMAKEDIR}
+	)
+
+	install(FILES 
+		${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+		${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+		DESTINATION
+			${${PROJECT_NAME}_INSTALL_CMAKEDIR}
+	)
+endfunction()
+
 if(NOT OPTICK_ENABLED)
 	message(STATUS "Optick is disabled")
 	# add dummy target as a replacement
 	add_library(OptickCore STATIC ${OPTICK_SRC})
-	target_include_directories(OptickCore PUBLIC "src")
 	target_compile_definitions(OptickCore PUBLIC USE_OPTICK=0)
+
+	target_include_directories(OptickCore
+		PUBLIC
+			$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src>
+	)
+
+	set_target_properties(OptickCore 
+		PROPERTIES 
+			PUBLIC_HEADER "${CMAKE_CURRENT_LIST_DIR}/src/optick.h;${CMAKE_CURRENT_LIST_DIR}/src/optick.config.h"
+			DEBUG_POSTFIX d # So that we can install debug and release side by side
+	)
+
+	if(OPTICK_INSTALL_TARGETS)
+		install_optick()
+	endif()
+
 	return()
 endif()
 
@@ -105,51 +166,5 @@ endif()
 ## Packaging ##
 ###############
 if(OPTICK_INSTALL_TARGETS)
-	include(CMakePackageConfigHelpers)
-	include(GNUInstallDirs)
-
-	set(${PROJECT_NAME}_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}" CACHE STRING "Path to smartcrop cmake files")
-
-	# Use version checking boilerplate
-	write_basic_package_version_file(
-		${PROJECT_NAME}ConfigVersion.cmake
-		COMPATIBILITY SameMajorVersion
-	)
-
-	configure_package_config_file(
-		${PROJECT_SOURCE_DIR}/tools/${PROJECT_NAME}Config.cmake.in
-		${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-		INSTALL_DESTINATION ${${PROJECT_NAME}_INSTALL_CMAKEDIR} 
-		# Imported targets do not require the following macros
-		NO_SET_AND_CHECK_MACRO
-		NO_CHECK_REQUIRED_COMPONENTS_MACRO 
-	)
-
-	install(TARGETS OptickCore
-		EXPORT ${PROJECT_NAME}_Targets
-		RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
-		LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/optick
-		PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/optick
-
-	)
-
-	install(
-		EXPORT ${PROJECT_NAME}_Targets 
-		NAMESPACE ${PROJECT_NAME}::
-		FILE ${PROJECT_NAME}Targets.cmake
-		DESTINATION ${${PROJECT_NAME}_INSTALL_CMAKEDIR}
-	)
-
-
-	install(FILES 
-		${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-		${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-		DESTINATION
-			${${PROJECT_NAME}_INSTALL_CMAKEDIR}
-	)
+	install_optick()
 endif()
-
-
-
